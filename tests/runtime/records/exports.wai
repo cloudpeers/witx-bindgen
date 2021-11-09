@@ -1,4 +1,4 @@
-test_imports: function()
+test_record_imports: function()
 
 multiple_results: function() -> (u8, u16)
 

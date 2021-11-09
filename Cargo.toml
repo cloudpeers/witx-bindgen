@@ -28,8 +28,12 @@ wai-bindgen-gen-js = { path = 'crates/gen-js', features = ['structopt'] }
 wai-bindgen-gen-c = { path = 'crates/gen-c', features = ['structopt'] }
 wai-bindgen-gen-markdown = { path = 'crates/gen-markdown', features = ['structopt'] }
 wai-bindgen-gen-spidermonkey = { path = 'crates/gen-spidermonkey', features = ['structopt'] }
+tests = "0.0.0"
 
 # Compiling `spidermonkey.wasm` takes way too long without this.
 [profile.dev.package.cranelift-codegen]
 debug-assertions = false
 opt-level = 2
+
+[patch.crates-io]
+wasmtime = { path = "../wasmtime/crates/wasmtime" }

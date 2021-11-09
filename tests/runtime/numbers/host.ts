@@ -36,7 +36,7 @@ async function run() {
   await wasm.instantiate(getWasm(), importObj);
   wasi.start(wasm.instance);
 
-  wasm.testImports();
+  wasm.testNumberImports();
 
   assertEq(wasm.roundtripU8(1), 1);
   assertEq(wasm.roundtripU8((1 << 8) - 1), (1 << 8) - 1);

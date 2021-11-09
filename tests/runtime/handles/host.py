@@ -119,7 +119,7 @@ def run(wasm_file: str) -> None:
     add_imports_to_linker(linker, store, imports)
     wasm = Exports(store, linker, module)
 
-    wasm.test_imports(store)
+    wasm.test_handle_imports(store)
 
     # Param/result of a handle works in a simple fashion
     s: e.WasmState = wasm.wasm_state_create(store)

@@ -2,7 +2,7 @@
 #include <imports.h>
 #include <exports.h>
 
-void exports_test_imports() {
+void exports_test_record_imports() {
   {
     uint8_t a;
     uint16_t b;

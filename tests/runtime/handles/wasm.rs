@@ -15,7 +15,7 @@ pub struct WasmState(u32);
 pub struct WasmState2(u32);
 
 impl exports::Exports for Exports {
-    fn test_imports() {
+    fn test_handle_imports() {
         use imports::*;
 
         let s: HostState = host_state_create();

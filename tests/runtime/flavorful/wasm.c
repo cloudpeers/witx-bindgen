@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-void exports_test_imports() {
+void exports_test_flavorful_imports() {
   {
     imports_list_in_record1_t a;
     imports_string_set(&a.a, "list_in_record1");

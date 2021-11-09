@@ -6,7 +6,7 @@ use exports::*;
 struct Exports;
 
 impl exports::Exports for Exports {
-    fn test_imports() {
+    fn test_record_imports() {
         use imports::*;
 
         assert_eq!(multiple_results(), (4, 5));

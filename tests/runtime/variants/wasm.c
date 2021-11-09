@@ -2,7 +2,7 @@
 #include <imports.h>
 #include <exports.h>
 
-void exports_test_imports() {
+void exports_test_variant_imports() {
   {
     imports_option_f32_t a;
     uint8_t r;
@@ -204,4 +204,3 @@ void exports_variant_zeros(exports_zeros_t *a, exports_z1_t *ret0, exports_z2_t 
 
 void exports_variant_typedefs(exports_option_typedef_t *a, exports_bool_typedef_t b, exports_result_typedef_t *c) {
 }
-

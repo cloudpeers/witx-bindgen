@@ -134,7 +134,7 @@ fn run(wasm: &str) -> Result<()> {
     )?;
 
     let bytes = exports.allocated_bytes(&mut store)?;
-    exports.test_imports(&mut store)?;
+    exports.test_list_imports(&mut store)?;
     exports.list_param(&mut store, &[1, 2, 3, 4])?;
     exports.list_param2(&mut store, "foo")?;
     exports.list_param3(&mut store, &["foo", "bar", "baz"])?;

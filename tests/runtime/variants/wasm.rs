@@ -6,7 +6,7 @@ use exports::*;
 struct Exports;
 
 impl exports::Exports for Exports {
-    fn test_imports() {
+    fn test_variant_imports() {
         use imports::*;
 
         assert_eq!(roundtrip_option(Some(1.0)), Some(1));

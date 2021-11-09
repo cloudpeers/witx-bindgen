@@ -1,4 +1,4 @@
-test_imports: function()
+test_handle_imports: function()
 
 resource wasm_state
 resource wasm_state2
@@ -50,4 +50,3 @@ resource markdown {
     append: function(buf: string)
     render: function() -> string
 }
-

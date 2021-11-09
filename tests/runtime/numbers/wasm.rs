@@ -9,7 +9,7 @@ struct Exports;
 static SCALAR: AtomicU32 = AtomicU32::new(0);
 
 impl exports::Exports for Exports {
-    fn test_imports() {
+    fn test_number_imports() {
         assert_eq!(roundtrip_u8(1), 1);
         assert_eq!(roundtrip_u8(u8::min_value()), u8::min_value());
         assert_eq!(roundtrip_u8(u8::max_value()), u8::max_value());

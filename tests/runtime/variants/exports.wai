@@ -1,4 +1,4 @@
-test_imports: function()
+test_variant_imports: function()
 
 roundtrip_option: function(a: option<f32>) -> option<u8>
 roundtrip_result: function(a: expected<u32, f32>) -> expected<f64, u8>

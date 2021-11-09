@@ -286,19 +286,11 @@ impl Generator for RustWasm {
         // For exported handles we synthesize some trait implementations
         // automatically for runtime-required traits.
         if !self.in_import {
-            let panic = "
-                #[cfg(not(target_arch = \"wasm32\"))]
-                {
-                    panic!(\"handles can only be used on wasm32\");
-                }
-                #[cfg(target_arch = \"wasm32\")]
-            ";
             self.src.push_str(&format!(
-                "
-                    unsafe impl wai_bindgen_rust::HandleType for super::{ty} {{
+                "   #[cfg(target_family = \"wasm\")]
+                    unsafe impl wai_bindgen_rust::handle::HandleType for super::{ty} {{
                         #[inline]
                         fn clone(_val: i32) -> i32 {{
-                            {panic_not_wasm}
                             {{
                                 #[link(wasm_import_module = \"canonical_abi\")]
                                 extern \"C\" {{
@@ -311,7 +303,6 @@ impl Generator for RustWasm {
 
                         #[inline]
                         fn drop(_val: i32) {{
-                            {panic_not_wasm}
                             {{
                                 #[link(wasm_import_module = \"canonical_abi\")]
                                 extern \"C\" {{
@@ -323,10 +314,10 @@ impl Generator for RustWasm {
                         }}
                     }}
 
-                    unsafe impl wai_bindgen_rust::LocalHandle for super::{ty} {{
+                    #[cfg(target_family = \"wasm\")]
+                    unsafe impl wai_bindgen_rust::handle::LocalHandle for super::{ty} {{
                         #[inline]
                         fn new(_val: i32) -> i32 {{
-                            {panic_not_wasm}
                             {{
                                 #[link(wasm_import_module = \"canonical_abi\")]
                                 extern \"C\" {{
@@ -339,7 +330,6 @@ impl Generator for RustWasm {
 
                         #[inline]
                         fn get(_val: i32) -> i32 {{
-                            {panic_not_wasm}
                             {{
                                 #[link(wasm_import_module = \"canonical_abi\")]
                                 extern \"C\" {{
@@ -351,8 +341,16 @@ impl Generator for RustWasm {
                         }}
                     }}
 
+                    #[cfg(target_family = \"wasm\")]
                     const _: () = {{
                         #[export_name = \"{ns}canonical_abi_drop_{name}\"]
+                        extern \"C\" fn drop(ty: Box<super::{ty}>) {{
+                            <super::{iface} as {iface}>::drop_{name_snake}(*ty)
+                        }}
+                    }};
+                    #[cfg(not(target_family = \"wasm\"))]
+                    const _: () = {{
+                        #[export_name = \"{ns}resource_drop_{name}\"]
                         extern \"C\" fn drop(ty: Box<super::{ty}>) {{
                             <super::{iface} as {iface}>::drop_{name_snake}(*ty)
                         }}
@@ -363,7 +361,6 @@ impl Generator for RustWasm {
                 name_snake = iface.resources[ty].name.to_snake_case(),
                 iface = iface.name.to_camel_case(),
                 ns = self.opts.symbol_namespace,
-                panic_not_wasm = panic,
             ));
             let trait_ = self
                 .traits
@@ -576,10 +573,18 @@ impl Generator for RustWasm {
         let is_dtor = self.types.is_preview1_dtor_func(func);
         let rust_name = func.name.to_snake_case();
 
-        self.src.push_str("#[export_name = \"");
+        self.src
+            .push_str("#[cfg_attr(target_family = \"wasm\", export_name = \"");
         self.src.push_str(&self.opts.symbol_namespace);
         self.src.push_str(&func.name);
-        self.src.push_str("\"]\n");
+        self.src.push_str("\")]\n");
+        self.src
+            .push_str("#[cfg_attr(not(target_family = \"wasm\"), export_name = \"");
+        self.src.push_str(&self.opts.symbol_namespace);
+        self.src.push_str(&iface.name);
+        self.src.push_str("_");
+        self.src.push_str(&func.name);
+        self.src.push_str("\")]\n");
         self.src.push_str("unsafe extern \"C\" fn __wai_bindgen_");
         self.src.push_str(&rust_name);
         self.src.push_str("(");
@@ -592,6 +597,14 @@ impl Generator for RustWasm {
             self.wasm_type(*param);
             self.src.push_str(", ");
             params.push(name);
+        }
+        if self.i64_return_pointer_area_size > 0 && !func.is_async {
+            self.src
+                .push_str("#[cfg(not(target_family = \"wasm\"))] ret: i32");
+        }
+        if func.is_async {
+            self.src
+                .push_str("#[cfg(not(target_family = \"wasm\"))] ch: i32");
         }
         self.src.push_str(")");
 
@@ -606,6 +619,11 @@ impl Generator for RustWasm {
         self.src.push_str("{\n");
 
         if func.is_async {
+            self.src.push_str(&format!(
+                "#[cfg(not(target_family = \"wasm\"))]
+                let ret = [0i64; {}].as_mut_ptr() as i32;\n",
+                self.i64_return_pointer_area_size
+            ));
             self.src.push_str("let future = async move {\n");
         }
 
@@ -667,7 +685,12 @@ impl Generator for RustWasm {
         let any_async = iface.functions.iter().any(|f| f.is_async);
         for (name, trait_) in self.traits.iter() {
             if any_async {
-                src.push_str("#[wai_bindgen_rust::async_trait(?Send)]\n");
+                src.push_str(
+                    "#[cfg_attr(target_family = \"wasm\", wai_bindgen_rust::async_trait(?Send))]\n",
+                );
+                src.push_str(
+                    "#[cfg_attr(not(target_family = \"wasm\"), wai_bindgen_rust::async_trait)]\n",
+                );
             }
             src.push_str("pub trait ");
             src.push_str(&name);
@@ -680,7 +703,8 @@ impl Generator for RustWasm {
 
             for (id, methods) in trait_.resource_methods.iter() {
                 if any_async {
-                    src.push_str("#[wai_bindgen_rust::async_trait(?Send)]\n");
+                    src.push_str("#[cfg_attr(target_family = \"wasm\", wai_bindgen_rust::async_trait(?Send))]\n");
+                    src.push_str("#[cfg_attr(not(target_family = \"wasm\"), wai_bindgen_rust::async_trait)]\n");
                 }
                 src.push_str(&format!(
                     "pub trait {} {{\n",
@@ -696,7 +720,8 @@ impl Generator for RustWasm {
 
         if self.i64_return_pointer_area_size > 0 {
             src.push_str(&format!(
-                "static mut RET_AREA: [i64; {0}] = [0; {0}];\n",
+                "#[cfg(target_family = \"wasm\")]
+                static mut RET_AREA: [i64; {0}] = [0; {0}];\n",
                 self.i64_return_pointer_area_size,
             ));
         }
@@ -783,10 +808,10 @@ impl FunctionBindgen<'_> {
         self.push_str(module);
         self.push_str("\")]\n");
         self.push_str("extern \"C\" {\n");
-        self.push_str("#[cfg_attr(target_arch = \"wasm32\", link_name = \"");
+        self.push_str("#[cfg_attr(target_family = \"wasm\", link_name = \"");
         self.push_str(name);
         self.push_str("\")]\n");
-        self.push_str("#[cfg_attr(not(target_arch = \"wasm32\"), link_name = \"");
+        self.push_str("#[cfg_attr(not(target_family = \"wasm\"), link_name = \"");
         self.push_str(module);
         self.push_str("_");
         self.push_str(name);
@@ -887,7 +912,19 @@ impl Bindgen for FunctionBindgen<'_> {
     fn i64_return_pointer_area(&mut self, amt: usize) -> String {
         assert!(amt <= self.gen.i64_return_pointer_area_size);
         let tmp = self.tmp();
+
+        self.push_str("#[cfg(target_family = \"wasm\")]");
         self.push_str(&format!("let ptr{} = RET_AREA.as_mut_ptr() as i32;\n", tmp));
+        if self.gen.in_import {
+            self.push_str("#[cfg(not(target_family = \"wasm\"))]");
+            self.push_str(&format!(
+                "let ptr{} = &mut [0i64; {}] as *mut i64 as i32;\n",
+                tmp, amt
+            ));
+        } else {
+            self.push_str("#[cfg(not(target_family = \"wasm\"))]");
+            self.push_str(&format!("let ptr{} = ret as i32;\n", tmp));
+        }
         format!("ptr{}", tmp)
     }
 
@@ -1141,10 +1178,21 @@ impl Bindgen for FunctionBindgen<'_> {
                 let tmp = self.tmp();
                 let len = format!("len{}", tmp);
                 self.push_str(&format!("let {} = {} as usize;\n", len, operands[1]));
-                let result = format!(
-                    "Vec::from_raw_parts({} as *mut _, {1}, {1})",
-                    operands[0], len
-                );
+                let result = format!("result{}", self.tmp());
+                if !self.gen.in_import {
+                    self.push_str(&format!(
+                        "#[cfg(target_family = \"wasm\")]
+                        let {0} = Vec::from_raw_parts({1} as *mut _, {2}, {2});
+                        #[cfg(not(target_family = \"wasm\"))]
+                        let {0} = std::slice::from_raw_parts({1} as *mut _, {2}).to_vec();\n",
+                        result, operands[0], len
+                    ));
+                } else {
+                    self.push_str(&format!(
+                        "let {0} = Vec::from_raw_parts({1} as *mut _, {2}, {2});\n",
+                        result, operands[0], len,
+                    ));
+                }
                 match element {
                     Type::Char => {
                         if unchecked {
@@ -1233,8 +1281,11 @@ impl Bindgen for FunctionBindgen<'_> {
                 self.push_str(");\n");
                 self.push_str("}\n");
                 results.push(result);
+                // To keep the api implementation identical for native and wasm
+                // the api is still owned. But the caller deallocates the resources.
                 self.push_str(&format!(
-                    "std::alloc::dealloc(
+                    "#[cfg(target_family = \"wasm\")]
+                    std::alloc::dealloc(
                         {} as *mut _,
                         std::alloc::Layout::from_size_align_unchecked(
                             ({} as usize) * {},
@@ -1358,11 +1409,37 @@ impl Bindgen for FunctionBindgen<'_> {
                 // ABI of the results.
                 self.push_str("unsafe extern \"C\" fn completion_callback(sender: usize");
                 for (i, result) in wasm_results.iter().enumerate() {
-                    self.push_str(", ");
-                    self.push_str(&format!("ret{}: ", i));
-                    self.push_str(wasm_type(*result));
+                    self.push_str(&format!(
+                        ", #[cfg(target_family = \"wasm\")] ret{}: {}",
+                        i,
+                        wasm_type(*result)
+                    ));
                 }
-                self.push_str(") {\n");
+                self.push_str(", #[cfg(not(target_family = \"wasm\"))] ret: i32) {\n");
+                let mut offset = 0;
+                for (i, result) in wasm_results.iter().enumerate() {
+                    self.push_str("#[cfg(not(target_family = \"wasm\"))]\n");
+                    self.push_str(&format!("let ret{}: {} = ", i, wasm_type(*result)));
+                    match *result {
+                        WasmType::I32 => {
+                            self.push_str(&format!("*((ret + {}) as *const i32)", offset));
+                            offset += 8;
+                        }
+                        WasmType::I64 => {
+                            self.push_str(&format!("*((ret + {}) as *const i64)", offset));
+                            offset += 8;
+                        }
+                        WasmType::F32 => {
+                            self.push_str(&format!("*((ret + {}) as *const f32)", offset));
+                            offset += 8;
+                        }
+                        WasmType::F64 => {
+                            self.push_str(&format!("*((ret + {}) as *const f64)", offset));
+                            offset += 8;
+                        }
+                    };
+                    self.push_str(";\n");
+                }
                 self.push_str("wai_bindgen_rust::rt::Sender::from_usize(sender).send((");
                 for i in 0..wasm_results.len() {
                     self.push_str(&format!("ret{},", i));
@@ -1466,8 +1543,14 @@ impl Bindgen for FunctionBindgen<'_> {
             Instruction::ReturnAsyncExport { .. } => {
                 self.emit_cleanup();
                 self.push_str(&format!(
-                    "unsafe {{ wai_bindgen_rust::rt::async_export_done({}, {}); }}\n",
-                    operands[0], operands[1]
+                    "#[cfg(target_family = \"wasm\")]
+                    unsafe {{ wai_bindgen_rust::rt::async_export_done({0}, {1}); }}
+                    #[cfg(not(target_family = \"wasm\"))]
+                    {{
+                        let cb: extern \"C\" fn(usize, i32) = unsafe {{ std::mem::transmute({0}) }};
+                        cb(ch as usize, ret);
+                    }}",
+                    operands[0], operands[1],
                 ));
             }
             Instruction::ReturnAsyncImport { .. } => unreachable!(),

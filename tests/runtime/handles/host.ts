@@ -63,7 +63,7 @@ async function run() {
   wasi.start(wasm.instance);
   instance = wasm.instance;
 
-  wasm.testImports();
+  wasm.testHandleImports();
 
   // Param/result of a handle works in a simple fashion
   const s: exports.WasmState = wasm.wasmStateCreate();

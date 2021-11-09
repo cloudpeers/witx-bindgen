@@ -65,7 +65,7 @@ def run(wasm_file: str) -> None:
     add_imports_to_linker(linker, store, imports)
     wasm = Exports(store, linker, module)
 
-    wasm.test_imports(store)
+    wasm.test_flavorful_imports(store)
     wasm.list_in_record1(store, e.ListInRecord1("list_in_record1"))
     assert(wasm.list_in_record2(store) == e.ListInRecord2(a="list_in_record2"))
 

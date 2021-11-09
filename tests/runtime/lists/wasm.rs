@@ -9,12 +9,16 @@ struct Exports;
 
 impl exports::Exports for Exports {
     fn allocated_bytes() -> u32 {
-        test_rust_wasm::get() as u32
+        #[cfg(target_family = "wasm")]
+        return test_rust_wasm::get() as u32;
+        #[cfg(not(target_family = "wasm"))]
+        0
     }
 
-    fn test_imports() {
+    fn test_list_imports() {
         use imports::*;
 
+        #[cfg(target_family = "wasm")]
         let _guard = test_rust_wasm::guard();
 
         list_param(&[1, 2, 3, 4]);

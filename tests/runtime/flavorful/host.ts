@@ -56,7 +56,7 @@ async function run() {
   wasi.start(wasm.instance);
   instance = wasm.instance;
 
-  wasm.testImports();
+  wasm.testFlavorfulImports();
   wasm.listInRecord1({ a: "list_in_record1" });
   assert.deepStrictEqual(wasm.listInRecord2(), { a: "list_in_record2" });
 

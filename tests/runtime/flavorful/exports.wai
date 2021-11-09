@@ -1,4 +1,4 @@
-test_imports: function()
+test_flavorful_imports: function()
 
 record list_in_record1 { a: string }
 record list_in_record2 { a: string }

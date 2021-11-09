@@ -62,7 +62,7 @@ fn run(wasm: &str) -> Result<()> {
         |store, module, linker| Exports::instantiate(store, module, linker, |cx| &mut cx.exports),
     )?;
 
-    exports.test_imports(&mut store)?;
+    exports.test_variant_imports(&mut store)?;
 
     assert_eq!(exports.roundtrip_option(&mut store, Some(1.0))?, Some(1));
     assert_eq!(exports.roundtrip_option(&mut store, None)?, None);

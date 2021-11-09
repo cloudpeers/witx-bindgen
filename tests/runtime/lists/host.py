@@ -85,7 +85,7 @@ def run(wasm_file: str) -> None:
     wasm = Exports(store, linker, module)
 
     allocated_bytes = wasm.allocated_bytes(store)
-    wasm.test_imports(store)
+    wasm.test_list_imports(store)
     wasm.list_param(store, b'\x01\x02\x03\x04')
     wasm.list_param2(store, "foo")
     wasm.list_param3(store, ["foo", "bar", "baz"])

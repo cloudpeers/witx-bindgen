@@ -59,7 +59,7 @@ uint32_t exports_get_scalar(void) {
 }
 
 
-void exports_test_imports() {
+void exports_test_number_imports() {
   assert(imports_roundtrip_u8(1) == 1);
   assert(imports_roundtrip_u8(0) == 0);
   assert(imports_roundtrip_u8(UCHAR_MAX) == UCHAR_MAX);

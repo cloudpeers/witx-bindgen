@@ -1,55 +1,33 @@
 //! Helper library support for `async` wai functions, used for both
 
-use std::cell::RefCell;
 use std::future::Future;
 use std::mem;
 use std::pin::Pin;
-use std::rc::{Rc, Weak};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::task::*;
 
-#[cfg(target_arch = "wasm32")]
-#[link(wasm_import_module = "canonical_abi")]
-extern "C" {
-    pub fn async_export_done(ctx: i32, ptr: i32);
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub unsafe extern "C" fn async_export_done(_ctx: i32, _ptr: i32) {
-    panic!("only supported on wasm");
-}
-
 struct PollingWaker {
-    state: RefCell<State>,
+    state: Mutex<State>,
 }
 
 enum State {
-    Waiting(Pin<Box<dyn Future<Output = ()>>>),
+    Waiting(Pin<Box<dyn Future<Output = ()> + Send>>),
     Polling,
     Woken,
 }
 
-// These are valid for single-threaded WebAssembly because everything is
-// single-threaded and send/sync don't matter much. This module will need
-// an alternative implementation for threaded WebAssembly when that comes about
-// to host runtimes off-the-web.
-#[cfg(not(target_feature = "atomics"))]
-unsafe impl Send for PollingWaker {}
-#[cfg(not(target_feature = "atomics"))]
-unsafe impl Sync for PollingWaker {}
-
 /// Runs the `future` provided to completion, polling the future whenever its
 /// waker receives a call to `wake`.
-pub fn execute(future: impl Future<Output = ()> + 'static) {
+pub fn execute(future: impl Future<Output = ()> + Send + 'static) {
     let waker = Arc::new(PollingWaker {
-        state: RefCell::new(State::Waiting(Box::pin(future))),
+        state: Mutex::new(State::Waiting(Box::pin(future))),
     });
     waker.wake()
 }
 
 impl Wake for PollingWaker {
     fn wake(self: Arc<Self>) {
-        let mut state = self.state.borrow_mut();
+        let mut state = self.state.lock().unwrap();
         let mut future = match mem::replace(&mut *state, State::Polling) {
             // We are the first wake to come in to wake-up this future. This
             // means that we need to actually poll the future, so leave the
@@ -81,7 +59,7 @@ impl Wake for PollingWaker {
                 Poll::Pending => {}
             }
 
-            let mut state = self.state.borrow_mut();
+            let mut state = self.state.lock().unwrap();
             match *state {
                 // This means that we were not woken while we were polling and
                 // the state is as it was when we took out the future before. By
@@ -110,15 +88,15 @@ impl Wake for PollingWaker {
 }
 
 pub struct Oneshot<T> {
-    inner: Weak<OneshotInner<T>>,
+    inner: Arc<OneshotInner<T>>,
 }
 
 pub struct Sender<T> {
-    inner: Rc<OneshotInner<T>>,
+    inner: Arc<OneshotInner<T>>,
 }
 
 struct OneshotInner<T> {
-    state: RefCell<OneshotState<T>>,
+    state: Mutex<OneshotState<T>>,
 }
 
 enum OneshotState<T> {
@@ -130,12 +108,12 @@ enum OneshotState<T> {
 impl<T> Oneshot<T> {
     /// Returns a new "oneshot" channel as well as a completion callback.
     pub fn new() -> (Oneshot<T>, Sender<T>) {
-        let inner = Rc::new(OneshotInner {
-            state: RefCell::new(OneshotState::Start),
+        let inner = Arc::new(OneshotInner {
+            state: Mutex::new(OneshotState::Start),
         });
         (
             Oneshot {
-                inner: Rc::downgrade(&inner),
+                inner: inner.clone(),
             },
             Sender { inner },
         )
@@ -146,13 +124,7 @@ impl<T> Future for Oneshot<T> {
     type Output = T;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<T> {
-        let inner = match self.inner.upgrade() {
-            Some(inner) => inner,
-            // Technically this isn't possible in the initial draft of interface
-            // types unless there's some serious bug somewhere.
-            None => panic!("completion callback was canceled"),
-        };
-        let mut state = inner.state.borrow_mut();
+        let mut state = self.inner.state.lock().unwrap();
         match mem::replace(&mut *state, OneshotState::Start) {
             OneshotState::Done(t) => Poll::Ready(t),
             OneshotState::Waiting(_) | OneshotState::Start => {
@@ -165,17 +137,17 @@ impl<T> Future for Oneshot<T> {
 
 impl<T> Sender<T> {
     pub fn into_usize(self) -> usize {
-        Rc::into_raw(self.inner) as usize
+        Arc::into_raw(self.inner) as usize
     }
 
     pub unsafe fn from_usize(ptr: usize) -> Sender<T> {
         Sender {
-            inner: Rc::from_raw(ptr as *const _),
+            inner: Arc::from_raw(ptr as *const _),
         }
     }
 
     pub fn send(self, val: T) {
-        let mut state = self.inner.state.borrow_mut();
+        let mut state = self.inner.state.lock().unwrap();
         let prev = mem::replace(&mut *state, OneshotState::Done(val));
         // Must `drop` before the `wake` below because waking may induce
         // polling which would induce another `borrow_mut` which would
@@ -201,7 +173,7 @@ impl<T> Sender<T> {
 
 impl<T> Drop for OneshotInner<T> {
     fn drop(&mut self) {
-        if let OneshotState::Waiting(waker) = &*self.state.borrow() {
+        if let OneshotState::Waiting(waker) = &*self.state.lock().unwrap() {
             waker.wake_by_ref();
         }
     }

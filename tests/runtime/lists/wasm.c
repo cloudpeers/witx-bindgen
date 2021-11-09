@@ -34,7 +34,7 @@ uint32_t exports_allocated_bytes(void) {
   return ALLOCATED_BYTES;
 }
 
-void exports_test_imports() {
+void exports_test_list_imports() {
   {
     uint8_t list[] = {1, 2, 3, 4};
     imports_list_u8_t a;

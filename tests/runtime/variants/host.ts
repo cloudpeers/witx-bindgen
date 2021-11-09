@@ -41,7 +41,7 @@ async function run() {
   wasi.start(wasm.instance);
   instance = wasm.instance;
 
-  wasm.testImports();
+  wasm.testVariantImports();
   assert.deepStrictEqual(wasm.roundtripOption(1), 1);
   assert.deepStrictEqual(wasm.roundtripOption(null), null);
   assert.deepStrictEqual(wasm.roundtripOption(2), 2);

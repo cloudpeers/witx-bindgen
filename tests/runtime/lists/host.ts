@@ -111,7 +111,7 @@ async function run() {
   instance = wasm.instance;
 
   const bytes = wasm.allocatedBytes();
-  wasm.testImports();
+  wasm.testListImports();
   wasm.listParam(new Uint8Array([1, 2, 3, 4]));
   wasm.listParam2("foo");
   wasm.listParam3(["foo", "bar", "baz"]);

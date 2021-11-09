@@ -1,4 +1,4 @@
-test_imports: function()
+test_list_imports: function()
 allocated_bytes: function() -> u32
 
 list_param: function(a: list<u8>)

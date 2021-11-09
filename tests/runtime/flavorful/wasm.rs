@@ -6,10 +6,10 @@ use exports::*;
 struct Exports;
 
 impl exports::Exports for Exports {
-    fn test_imports() {
+    fn test_flavorful_imports() {
         use imports::*;
 
-        let _guard = test_rust_wasm::guard();
+        //let _guard = test_rust_wasm::guard();
 
         list_in_record1(ListInRecord1 {
             a: "list_in_record1",

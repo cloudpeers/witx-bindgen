@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-void exports_test_imports() {
+void exports_test_handle_imports() {
   imports_host_state_t s = imports_host_state_create();
   assert(imports_host_state_get(s) == 100);
   imports_host_state_free(&s);

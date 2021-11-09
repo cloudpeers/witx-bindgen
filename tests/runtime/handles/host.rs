@@ -105,7 +105,7 @@ fn run(wasm: &str) -> Result<()> {
         |store, module, linker| Exports::instantiate(store, module, linker, |cx| &mut cx.exports),
     )?;
 
-    exports.test_imports(&mut store)?;
+    exports.test_handle_imports(&mut store)?;
 
     let s: WasmState = exports.wasm_state_create(&mut store)?;
     assert_eq!(exports.wasm_state_get_val(&mut store, &s)?, 100);

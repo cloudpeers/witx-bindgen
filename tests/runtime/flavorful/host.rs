@@ -102,7 +102,7 @@ fn run(wasm: &str) -> Result<()> {
         |store, module, linker| Exports::instantiate(store, module, linker, |cx| &mut cx.exports),
     )?;
 
-    exports.test_imports(&mut store)?;
+    exports.test_flavorful_imports(&mut store)?;
 
     exports.list_in_record1(
         &mut store,
